@@ -3,10 +3,10 @@ const RESET_VOLUME = 10; // percent
 const UNJOIN_DELAY_MS = 800;
 const VOL_START_THRESHOLD = 10; // percent
 
-const CLR_BTN = "#342C3E";
-const CLR_BTN_OFF = "#504A58";
-const CLR_ACCENT = "#926BC7";
-const CLR_TEXT_OFF = "#A8A2B0";
+const CLR_BTN = "var(--primary-color)";
+const CLR_BTN_OFF = "var(--disabled-color, #bdbdbd)";
+const CLR_ACCENT = "var(--primary-color)";
+const CLR_TEXT_OFF = "var(--secondary-text-color)";
 
 // ── RadioCard ──────────────────────────────────────────────────────────────
 
@@ -48,7 +48,7 @@ class RadioCard extends HTMLElement {
   }
 
   static getConfigElement() {
-    return document.createElement("dl-radio-card-editor");
+    return document.createElement("radio-card-editor");
   }
 
   _esc(str) {
@@ -87,7 +87,7 @@ class RadioCard extends HTMLElement {
       #play:disabled, #pause:disabled { background: ${CLR_BTN_OFF}; color: ${CLR_TEXT_OFF}; cursor: not-allowed; }
       #reset { background: var(--error-color, #c00); border: none; color: white; }
       #reset:disabled { background: ${CLR_BTN_OFF}; color: ${CLR_TEXT_OFF}; cursor: not-allowed; }
-      #reset-config { background: ${CLR_BTN}; border: none; color: var(--primary-text-color); }
+      #reset-config { background: ${CLR_BTN}; border: none; color: white; }
       #reset-config:disabled { background: ${CLR_BTN_OFF}; border: none; color: ${CLR_TEXT_OFF}; cursor: not-allowed; }
       .divider { border: none; border-top: 2px solid var(--divider-color, #aaa); margin: 2px 0; }
       .player-row { display: flex; flex-direction: column; gap: 4px; padding-top: 16px; padding-bottom: 16px; }
@@ -101,11 +101,11 @@ class RadioCard extends HTMLElement {
       .btn-row button { flex: 1; padding: 12px; border: none; border-radius: 5px; font-size: 0.9em; cursor: pointer; color: white; }
       .btn-row .stop-btn { background: var(--error-color, #c00); border: none; color: white; }
       .btn-row .stop-btn:disabled { background: ${CLR_BTN_OFF}; border: none; color: ${CLR_TEXT_OFF}; cursor: not-allowed; }
-      .btn-row .btn-group-toggle { background: ${CLR_BTN}; border: none; color: var(--primary-text-color); }
+      .btn-row .btn-group-toggle { background: ${CLR_BTN}; border: none; color: white; }
       .btn-row .btn-group-toggle:disabled { background: ${CLR_BTN_OFF}; border: none; color: ${CLR_TEXT_OFF}; cursor: not-allowed; }
-      .btn-row .vol-down, .btn-row .vol-up { background: ${CLR_BTN}; border: 1px solid ${CLR_BTN}; color: var(--primary-text-color); }
+      .btn-row .vol-down, .btn-row .vol-up { background: ${CLR_BTN}; border: 1px solid ${CLR_BTN}; color: white; }
       .btn-row .vol-down:disabled, .btn-row .vol-up:disabled { border: 1px solid ${CLR_BTN_OFF}; color: ${CLR_TEXT_OFF}; cursor: not-allowed; }
-      .btn-row .vol-display { background: ${CLR_BTN}; border: 1px solid ${CLR_BTN}; color: var(--primary-text-color); font-weight: bold; cursor: default; }
+      .btn-row .vol-display { background: ${CLR_BTN}; border: 1px solid ${CLR_BTN}; color: white; font-weight: bold; cursor: default; }
       .btn-row .btn-pause { background: ${CLR_BTN}; border: none; color: white; }
       .btn-row .btn-pause:disabled { background: ${CLR_BTN_OFF}; color: ${CLR_TEXT_OFF}; cursor: not-allowed; }
     `;
@@ -239,11 +239,11 @@ class RadioCard extends HTMLElement {
         .dl-vol-close ha-icon { --mdc-icon-size: 22px; }
         .dl-vol-name  { font-size: 1.1em; font-weight: bold; color: var(--primary-text-color, #fff); margin-top: 8px; }
         .dl-vol-value { font-size: 2em; font-weight: bold; color: var(--primary-text-color, #fff); min-width: 3ch; text-align: center; }
-        .dl-vol-track { width: 100px; height: 220px; border-radius: 30px; background: ${CLR_BTN}; position: relative; cursor: pointer; touch-action: none; user-select: none; overflow: hidden; }
+        .dl-vol-track { width: 100px; height: 220px; border-radius: 30px; background: var(--secondary-background-color); position: relative; cursor: pointer; touch-action: none; user-select: none; overflow: hidden; }
         .dl-vol-fill  { position: absolute; bottom: 0; left: 0; right: 0; background: ${CLR_ACCENT}; border-radius: 0; pointer-events: none; }
         .dl-vol-handle { position: absolute; top: 12px; left: 20%; right: 20%; height: 4px; background: rgba(255,255,255,0.9); border-radius: 2px; }
         .dl-vol-presets { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-        .dl-vol-preset { background: #242424; border: none; border-radius: 20px; padding: 8px 14px; color: var(--primary-text-color, #fff); cursor: pointer; font-size: 0.9em; transition: background 0.15s; }
+        .dl-vol-preset { background: var(--secondary-background-color); border: none; border-radius: 20px; padding: 8px 14px; color: var(--primary-text-color); cursor: pointer; font-size: 0.9em; transition: background 0.15s; }
         .dl-vol-preset.active { background: ${CLR_BTN}; color: white; }
       </style>
       <div class="dl-vol-popup">
@@ -667,7 +667,7 @@ class RadioCard extends HTMLElement {
   }
 }
 
-customElements.define("dl-radio-card", RadioCard);
+customElements.define("radio-card", RadioCard);
 
 // ── RadioCardEditor ────────────────────────────────────────────────────────
 
@@ -836,7 +836,7 @@ class RadioCardEditor extends HTMLElement {
         .sort-btn:hover { color: var(--primary-text-color); background: rgba(128,128,128,0.15); }
         .sort-btn ha-icon { --mdc-icon-size: 18px; pointer-events: none; }
         .item { display: flex; align-items: flex-end; gap: 8px; padding: 4px 16px; }
-        .item.drag-over { outline: 2px solid ${CLR_ACCENT}; border-radius: 4px; background: rgba(146,107,199,0.08); }
+        .item.drag-over { outline: 2px solid ${CLR_ACCENT}; border-radius: 4px; background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08); }
         .field { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
         .field-label { font-size: 0.75em; color: var(--secondary-text-color); }
         .left-col { flex: 1; display: flex; align-items: flex-end; gap: 8px; min-width: 0; }
@@ -1066,7 +1066,7 @@ class RadioCardEditor extends HTMLElement {
         .sp-search-wrap { padding: 10px 16px; border-bottom: 1px solid var(--divider-color, #444); flex-shrink: 0; }
         .sp-search     { width: 100%; height: 36px; padding: 0 10px; box-sizing: border-box; border: 1px solid var(--divider-color, #555); border-radius: 4px; background: var(--secondary-background-color, #1c1c1c); color: var(--primary-text-color); font-size: 0.9em; outline: none; }
         .sp-search:focus { border-color: ${CLR_ACCENT}; }
-        .sp-list       { overflow-y: auto; height: calc(10 * 48px); }
+        .sp-list       { overflow-y: auto; height: calc(6 * 48px); }
         .sp-item       { display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer; border-bottom: 1px solid var(--divider-color, #333); min-height: 48px; box-sizing: border-box; }
         .sp-item:last-child { border-bottom: none; }
         .sp-item:hover { background: rgba(128,128,128,0.12); }
@@ -1332,7 +1332,12 @@ class RadioCardEditor extends HTMLElement {
   }
 }
 
-customElements.define("dl-radio-card-editor", RadioCardEditor);
+customElements.define("radio-card-editor", RadioCardEditor);
 
 window.customCards = window.customCards || [];
-window.customCards.push({ type: "dl-radio-card", name: "Radio" });
+
+window.customCards.push({
+  type: "radio-card",
+  name: "Radio Card",
+  description: "Radio-Sender auf mehreren Lautsprechern steuern",
+});
