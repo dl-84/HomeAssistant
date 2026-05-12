@@ -1,9 +1,9 @@
-// Version: 1.0
+// Version: 1.1
 
 const MAX_VOLUME = 25;
 const RESET_VOLUME = 10; // percent
 const UNJOIN_DELAY_MS = 800;
-const VOL_START_THRESHOLD = 10; // percent
+const VOLUME_START_THRESHOLD = 10; // percent
 
 // ── RadioCard ──────────────────────────────────────────────────────────────
 
@@ -48,63 +48,175 @@ class RadioCard extends HTMLElement {
     return document.createElement("radio-card-editor");
   }
 
-  _esc(str) {
+  _escapeHtml(str) {
     return String(str || "")
       .replace(/&/g, "&amp;")
       .replace(/"/g, "&quot;")
       .replace(/</g, "&lt;");
   }
 
-  _maxVol() {
+  _maxVolume() {
     return this.config.maxVolume ?? MAX_VOLUME;
   }
-  _resetVol() {
+
+  _resetVolume() {
     return (this.config.resetVolume ?? RESET_VOLUME) / 100;
   }
 
   static get _css() {
     return `
-      ha-card { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
-      button ha-icon { --mdc-icon-size: 20px; }
-      .dropdowns { display: flex; gap: 20px; }
-      .dropdowns .row { flex: 1; }
-      .row { display: flex; flex-direction: column; gap: 4px; }
-      label { font-size: 0.95em; font-weight: bold; color: var(--primary-text-color); }
-      select {
-        flex: 1; height: 48px; appearance: none; -webkit-appearance: none;
-        padding: 8px 36px 8px 12px; border: 1px solid var(--divider-color, #999); border-radius: 5px;
-        background: var(--card-background-color) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E") no-repeat right 12px center;
-        color: var(--primary-text-color); font-size: 1.1em; cursor: pointer;
+      .card-container {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
       }
-      .play-row { display: flex; gap: 8px; margin-top: 5px; }
-      .play-row button { flex: 1; padding: 12px; border: none; border-radius: 5px; font-size: 0.9em; cursor: pointer; color: white; }
-      #play, #pause { background: var(--primary-color); }
-      #play:hover:not(:disabled), #pause:hover:not(:disabled) { opacity: 0.85; }
-      #play:active:not(:disabled), #pause:active:not(:disabled) { opacity: 0.7; }
-      #play:disabled, #pause:disabled { background: var(--disabled-color, #bdbdbd); color: var(--secondary-text-color); cursor: not-allowed; }
-      #reset { background: var(--error-color, #c00); border: none; color: white; }
-      #reset:disabled { background: var(--disabled-color, #bdbdbd); color: var(--secondary-text-color); cursor: not-allowed; }
-      #reset-config { background: var(--primary-color); border: none; color: white; }
-      #reset-config:disabled { background: var(--disabled-color, #bdbdbd); border: none; color: var(--secondary-text-color); cursor: not-allowed; }
-      .divider { border: none; border-top: 2px solid var(--divider-color, #aaa); margin: 2px 0; }
-      .player-row { display: flex; flex-direction: column; gap: 4px; padding-top: 16px; padding-bottom: 16px; }
-      .player-row:first-child { padding-top: 0; }
-      .player-row:last-child  { padding-bottom: 0; }
-      .player-name-row { display: flex; align-items: center; gap: 8px; }
-      .player-name { font-size: 0.95em; font-weight: bold; color: var(--primary-text-color); flex: 1; }
-      .player-master, .player-slave { font-size: 0.85em; color: var(--secondary-text-color); flex-shrink: 0; }
-      .player-track { font-size: 0.85em; color: var(--secondary-text-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .btn-row { display: flex; gap: 8px; margin-top: 8px; }
-      .btn-row button { flex: 1; padding: 12px; border: none; border-radius: 5px; font-size: 0.9em; cursor: pointer; color: white; }
-      .btn-row .stop-btn { background: var(--error-color, #c00); border: none; color: white; }
-      .btn-row .stop-btn:disabled { background: var(--disabled-color, #bdbdbd); border: none; color: var(--secondary-text-color); cursor: not-allowed; }
-      .btn-row .btn-group-toggle { background: var(--primary-color); border: none; color: white; }
-      .btn-row .btn-group-toggle:disabled { background: var(--disabled-color, #bdbdbd); border: none; color: var(--secondary-text-color); cursor: not-allowed; }
-      .btn-row .vol-down, .btn-row .vol-up { background: var(--primary-color); border: 1px solid var(--primary-color); color: white; }
-      .btn-row .vol-down:disabled, .btn-row .vol-up:disabled { border: 1px solid var(--disabled-color, #bdbdbd); color: var(--secondary-text-color); cursor: not-allowed; }
-      .btn-row .vol-display { background: var(--primary-color); border: 1px solid var(--primary-color); color: white; font-weight: bold; cursor: default; }
-      .btn-row .btn-pause { background: var(--primary-color); border: none; color: white; }
-      .btn-row .btn-pause:disabled { background: var(--disabled-color, #bdbdbd); color: var(--secondary-text-color); cursor: not-allowed; }
+
+      .button-base ha-icon {
+        --mdc-icon-size: 20px;
+      }
+
+      .dropdowns {
+        display: flex;
+        gap: 20px;
+      }
+
+      .dropdowns .row {
+        flex: 1;
+      }
+
+      .row {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .dropdown-label {
+        font-size: 0.95em;
+        font-weight: bold;
+        color: var(--primary-text-color);
+      }
+
+      .dropdown-select {
+        flex: 1;
+        height: 48px;
+        appearance: none;
+        -webkit-appearance: none;
+        padding: 8px 36px 8px 12px;
+        border: 1px solid var(--divider-color, #999);
+        border-radius: 5px;
+        background: var(--card-background-color) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E") no-repeat right 12px center;
+        color: var(--primary-text-color);
+        font-size: 1.1em;
+        cursor: pointer;
+      }
+
+      .button-base {
+        flex: 1;
+        padding: 12px;
+        border: none;
+        border-radius: 5px;
+        font-size: 0.9em;
+        cursor: pointer;
+        color: white;
+      }
+
+      .button-base:disabled {
+        background: var(--disabled-color, #bdbdbd);
+        color: var(--secondary-text-color);
+        cursor: not-allowed;
+      }
+
+      .button-primary {
+        background: var(--primary-color);
+      }
+
+      .button-primary:hover:not(:disabled) {
+        opacity: 0.85;
+      }
+
+      .button-primary:active:not(:disabled) {
+        opacity: 0.7;
+      }
+
+      .button-danger {
+        background: var(--error-color, #c00);
+      }
+
+      .play-row {
+        display: flex;
+        gap: 8px;
+        margin-top: 5px;
+      }
+
+      .divider {
+        border: none;
+        border-top: 2px solid var(--divider-color, #aaa);
+        margin: 2px 0;
+      }
+
+      .player-row {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding-top: 16px;
+        padding-bottom: 16px;
+      }
+
+      .player-row:first-child {
+        padding-top: 0;
+      }
+
+      .player-row:last-child {
+        padding-bottom: 0;
+      }
+
+      .player-name-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .player-name {
+        font-size: 0.95em;
+        font-weight: bold;
+        color: var(--primary-text-color);
+        flex: 1;
+      }
+
+      .player-label {
+        font-size: 0.85em;
+        color: var(--secondary-text-color);
+        flex-shrink: 0;
+      }
+
+      .player-track {
+        font-size: 0.85em;
+        color: var(--secondary-text-color);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .button-row {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .volume-button {
+        border: 1px solid var(--primary-color);
+      }
+
+      .volume-button:disabled {
+        border: 1px solid var(--disabled-color, #bdbdbd);
+      }
+
+      .volume-display {
+        border: 1px solid var(--primary-color);
+        font-weight: bold;
+        cursor: default;
+      }
     `;
   }
 
@@ -112,14 +224,14 @@ class RadioCard extends HTMLElement {
     const players = this.config.players || [];
     const elements = [];
 
-    players.forEach((p, i) => {
-      if (i > 0) {
+    players.forEach((player, index) => {
+      if (index > 0) {
         const hr = document.createElement("hr");
         hr.className = "divider";
         elements.push(hr);
       }
 
-      const state = this._hass.states[p.entity];
+      const state = this._hass.states[player.entity];
       const isPlaying =
         state && (state.state === "playing" || state.state === "paused");
       const isActivelyPlaying = state && state.state === "playing";
@@ -128,15 +240,15 @@ class RadioCard extends HTMLElement {
         state.attributes.group_members &&
         state.attributes.group_members.length > 1;
       const isMaster =
-        this._masterEntity !== null && this._masterEntity === p.entity;
+        this._masterEntity !== null && this._masterEntity === player.entity;
       const isSlave = inGroup && !isMaster;
-      const isGrouped = isSlave || this._groupedEntities.includes(p.entity);
+      const isGrouped = isSlave || this._groupedEntities.includes(player.entity);
       const isMasterWithSlaves =
         isMaster && (inGroup || this._groupedEntities.length > 0);
-      const isInPaused = this._pausedEntities.includes(p.entity);
-      const pauseBtnDisabled =
+      const isInPaused = this._pausedEntities.includes(player.entity);
+      const pauseButtonDisabled =
         !isActivelyPlaying && !isInPaused ? " disabled" : "";
-      const pauseBtnIcon = isInPaused ? "mdi:play-pause" : "mdi:pause";
+      const pauseButtonIcon = isInPaused ? "mdi:play-pause" : "mdi:pause";
       const artist = (state && state.attributes.media_artist) || "";
       const title = (state && state.attributes.media_title) || "";
       const volume =
@@ -152,7 +264,7 @@ class RadioCard extends HTMLElement {
               ? `${artist} — ${title}`
               : title
             : "Wird gestartet...";
-      } else if (this._resumingEntities.includes(p.entity)) {
+      } else if (this._resumingEntities.includes(player.entity)) {
         trackInfo = "Wird gestartet...";
       } else if (isInPaused) {
         trackInfo = "Pausiert";
@@ -164,18 +276,33 @@ class RadioCard extends HTMLElement {
       div.className = "player-row";
       div.innerHTML = `
         <div class="player-name-row">
-          <span class="player-name">${this._esc(p.name)}</span>
-          ${isMaster ? '<span class="player-master">Master</span>' : ""}
-          ${isGrouped ? '<span class="player-slave">Slave</span>' : ""}
+          <span class="player-name">${this._escapeHtml(player.name)}</span>
+          ${isMaster ? '<span class="player-label">Master</span>' : ""}
+          ${isGrouped ? '<span class="player-label">Slave</span>' : ""}
         </div>
-        <div class="player-track">${this._esc(trackInfo)}</div>
-        <div class="btn-row">
-          <button class="stop-btn" data-index="${i}"${isPlaying ? "" : " disabled"}><ha-icon icon="mdi:stop"></ha-icon></button>
-          <button class="btn-pause" data-index="${i}"${pauseBtnDisabled}><ha-icon icon="${pauseBtnIcon}"></ha-icon></button>
-          <button class="btn-group-toggle" data-index="${i}" data-grouped="${isGrouped}"${this._masterEntity === null || (this._masterEntity === p.entity && !isMasterWithSlaves) ? " disabled" : ""}><ha-icon icon="${isGrouped || isMasterWithSlaves ? "mdi:link-variant-off" : "mdi:speaker-multiple"}"></ha-icon></button>
-          <button class="vol-down" data-index="${i}"><ha-icon icon="mdi:volume-minus"></ha-icon></button>
-          <button class="vol-display" data-index="${i}">${volume}</button>
-          <button class="vol-up" data-index="${i}"><ha-icon icon="mdi:volume-plus"></ha-icon></button>
+        <div class="player-track">${this._escapeHtml(trackInfo)}</div>
+        <div class="button-row">
+          <button class="button-base button-danger stop-button" data-index="${index}"${isPlaying ? "" : " disabled"}>
+            <ha-icon icon="mdi:stop"/>
+          </button>
+
+          <button class="button-base button-primary button-pause" data-index="${index}"${pauseButtonDisabled}>
+            <ha-icon icon="${pauseButtonIcon}"/>
+          </button>
+
+          <button class="button-base button-primary button-group-toggle" data-index="${index}" data-grouped="${isGrouped}"${this._masterEntity === null || (this._masterEntity === player.entity && !isMasterWithSlaves) ? " disabled" : ""}>
+            <ha-icon icon="${isGrouped || isMasterWithSlaves ? "mdi:link-variant-off" : "mdi:speaker-multiple"}"/>
+          </button>
+
+          <button class="button-base button-primary volume-button" data-index="${index}" data-step="-1">
+            <ha-icon icon="mdi:volume-minus"/>
+          </button>
+
+          <button class="button-base button-primary volume-display" data-index="${index}">${volume}</button>
+
+          <button class="button-base button-primary volume-button" data-index="${index}" data-step="1">
+            <ha-icon icon="mdi:volume-plus"/>
+          </button>
         </div>
       `;
       elements.push(div);
@@ -195,16 +322,33 @@ class RadioCard extends HTMLElement {
   }) {
     return `
       <style>${RadioCard._css}</style>
-      <ha-card>
+      <ha-card class="card-container">
         <div class="dropdowns">
-          <div class="row"><label>${this.config.stationLabel || "Sender"}</label><select id="station">${stationOptions}</select></div>
-          <div class="row"><label>${this.config.playerLabel || "Lautsprecher"}</label><select id="player">${playerOptions}</select></div>
+          <div class="row">
+            <label class="dropdown-label">${this.config.stationLabel || "Sender"}</label>
+            <select id="station" class="dropdown-select">${stationOptions}</select>
+          </div>
+          <div class="row">
+            <label class="dropdown-label">${this.config.playerLabel || "Lautsprecher"}</label>
+            <select id="player" class="dropdown-select">${playerOptions}</select>
+          </div>
         </div>
         <div class="play-row">
-          <button id="play"${playDisabled}><ha-icon icon="mdi:play"></ha-icon></button>
-          <button id="pause"${pauseDisabled}><ha-icon icon="${pauseIcon}"></ha-icon></button>
-          <button id="reset"${stopDisabled}><ha-icon icon="mdi:stop"></ha-icon></button>
-          <button id="reset-config"${resetDisabled}><ha-icon icon="mdi:restore"></ha-icon></button>
+          <button id="play" class="button-base button-primary"${playDisabled}>
+            <ha-icon icon="mdi:play"/>
+          </button>
+
+          <button id="pause" class="button-base button-primary"${pauseDisabled}>
+            <ha-icon icon="${pauseIcon}"/>
+          </button>
+
+          <button id="reset" class="button-base button-danger"${stopDisabled}>
+            <ha-icon icon="mdi:stop"/>
+          </button>
+
+          <button id="reset-config" class="button-base button-primary"${resetDisabled}>
+            <ha-icon icon="mdi:restore"/>
+          </button>
         </div>
         <hr class="divider">
         <div id="player-list"></div>
@@ -212,104 +356,210 @@ class RadioCard extends HTMLElement {
     `;
   }
 
-  _showVolumePopup(btn, player) {
-    if (document.querySelector(".dl-vol-wrapper")) return;
+  _showVolumePopup(button, player) {
+    if (document.querySelector(".volume-popup-wrapper")) return;
 
-    const maxVol = this._maxVol();
+    const maxVolume = this._maxVolume();
     const state = this._hass.states[player.entity];
     const volume =
       state && state.attributes.volume_level != null
         ? Math.round(state.attributes.volume_level * 100)
-        : parseInt(btn.textContent);
+        : parseInt(button.textContent);
 
-    const presets = [0.2, 0.4, 0.6, 0.8].map((f) => Math.round(maxVol * f));
+    const presets = [0.2, 0.4, 0.6, 0.8].map((factor) =>
+      Math.round(maxVolume * factor)
+    );
 
     const dialog = document.createElement("dialog");
-    dialog.className = "dl-vol-wrapper";
+    dialog.className = "volume-popup-wrapper";
     const cardRect = this.getBoundingClientRect();
     dialog.style.cssText = `padding:0;border:none;background:rgba(0,0,0,0.5);margin:0;position:fixed;left:${cardRect.left}px;top:${cardRect.top}px;width:${cardRect.width}px;height:${cardRect.height}px;max-width:none;max-height:none;display:flex;align-items:center;justify-content:center;overflow:hidden`;
     dialog.innerHTML = `
       <style>
-        dialog.dl-vol-wrapper::backdrop { background: transparent; }
-        .dl-vol-popup { background: var(--card-background-color, #2d2d2d); border-radius: 16px; padding: 24px 24px 20px; display: flex; flex-direction: column; align-items: center; gap: 16px; min-width: 220px; position: relative; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
-        .dl-vol-close { position: absolute; top: 12px; left: 12px; background: transparent; border: none; color: var(--primary-text-color, #fff); cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; }
-        .dl-vol-close ha-icon { --mdc-icon-size: 22px; }
-        .dl-vol-name  { font-size: 1.1em; font-weight: bold; color: var(--primary-text-color, #fff); margin-top: 8px; }
-        .dl-vol-value { font-size: 2em; font-weight: bold; color: var(--primary-text-color, #fff); min-width: 3ch; text-align: center; }
-        .dl-vol-track { width: 100px; height: 220px; border-radius: 30px; background: var(--secondary-background-color); position: relative; cursor: pointer; touch-action: none; user-select: none; overflow: hidden; }
-        .dl-vol-fill  { position: absolute; bottom: 0; left: 0; right: 0; background: var(--primary-color); border-radius: 0; pointer-events: none; }
-        .dl-vol-handle { position: absolute; top: 12px; left: 20%; right: 20%; height: 4px; background: rgba(255,255,255,0.9); border-radius: 2px; }
-        .dl-vol-presets { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-        .dl-vol-preset { background: var(--secondary-background-color); border: none; border-radius: 20px; padding: 8px 14px; color: var(--primary-text-color); cursor: pointer; font-size: 0.9em; transition: background 0.15s; }
-        .dl-vol-preset.active { background: var(--primary-color); color: white; }
+        dialog.volume-popup-wrapper::backdrop {
+          background: transparent;
+        }
+
+        .volume-popup {
+          background: var(--card-background-color, #2d2d2d);
+          border-radius: 16px;
+          padding: 24px 24px 20px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 16px;
+          min-width: 220px;
+          position: relative;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+
+        .volume-popup-close {
+          position: absolute;
+          top: 12px;
+          left: 12px;
+          background: transparent;
+          border: none;
+          color: var(--primary-text-color, #fff);
+          cursor: pointer;
+          padding: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 5px;
+        }
+
+        .volume-popup-close ha-icon {
+          --mdc-icon-size: 22px;
+        }
+
+        .volume-popup-name {
+          font-size: 1.1em;
+          font-weight: bold;
+          color: var(--primary-text-color, #fff);
+          margin-top: 8px;
+        }
+
+        .volume-popup-value {
+          font-size: 2em;
+          font-weight: bold;
+          color: var(--primary-text-color, #fff);
+          min-width: 3ch;
+          text-align: center;
+        }
+
+        .volume-popup-track {
+          width: 100px;
+          height: 220px;
+          border-radius: 30px;
+          background: var(--secondary-background-color);
+          position: relative;
+          cursor: pointer;
+          touch-action: none;
+          user-select: none;
+          overflow: hidden;
+        }
+
+        .volume-popup-fill {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          background: var(--primary-color);
+          border-radius: 0;
+          pointer-events: none;
+        }
+
+        .volume-popup-handle {
+          position: absolute;
+          top: 12px;
+          left: 20%;
+          right: 20%;
+          height: 4px;
+          background: rgba(255,255,255,0.9);
+          border-radius: 2px;
+        }
+
+        .volume-popup-presets {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+
+        .volume-popup-preset {
+          background: var(--secondary-background-color);
+          border: none;
+          border-radius: 10px;
+          padding: 8px 14px;
+          color: var(--primary-text-color);
+          cursor: pointer;
+          font-size: 0.9em;
+          transition: background 0.15s;
+        }
+
+        .volume-popup-preset.active {
+          background: var(--primary-color);
+          color: white;
+        }
       </style>
-      <div class="dl-vol-popup">
-        <button class="dl-vol-close"><ha-icon icon="mdi:close"></ha-icon></button>
-        <div class="dl-vol-name">${this._esc(player.name)}</div>
-        <div class="dl-vol-value">${volume}</div>
-        <div class="dl-vol-track">
-          <div class="dl-vol-fill" style="height:${(Math.min(volume, maxVol) / maxVol) * 100}%">
-            <div class="dl-vol-handle"></div>
+      <div class="volume-popup">
+        <button class="volume-popup-close">
+          <ha-icon icon="mdi:close"/>
+        </button>
+        <div class="volume-popup-name">${this._escapeHtml(player.name)}</div>
+        <div class="volume-popup-value">${volume}</div>
+        <div class="volume-popup-track">
+          <div class="volume-popup-fill" style="height:${(Math.min(volume, maxVolume) / maxVolume) * 100}%">
+            <div class="volume-popup-handle"></div>
           </div>
         </div>
-        <div class="dl-vol-presets">
-          ${presets.map((v) => `<button class="dl-vol-preset${volume === v ? " active" : ""}" data-val="${v}">${v}</button>`).join("")}
+        <div class="volume-popup-presets">
+          ${presets
+            .map(
+              (preset) =>
+                `<button class="volume-popup-preset${volume === preset ? " active" : ""}" data-value="${preset}">${preset}</button>`
+            )
+            .join("")}
         </div>
       </div>
     `;
     document.body.appendChild(dialog);
     dialog.showModal();
 
-    const valueDisplay = dialog.querySelector(".dl-vol-value");
-    const track = dialog.querySelector(".dl-vol-track");
-    const fill = dialog.querySelector(".dl-vol-fill");
+    const valueDisplay = dialog.querySelector(".volume-popup-value");
+    const track = dialog.querySelector(".volume-popup-track");
+    const fill = dialog.querySelector(".volume-popup-fill");
 
-    const updateUI = (val) => {
-      fill.style.height = (val / maxVol) * 100 + "%";
-      valueDisplay.textContent = val;
+    const updateUI = (value) => {
+      fill.style.height = (value / maxVolume) * 100 + "%";
+      valueDisplay.textContent = value;
       dialog
-        .querySelectorAll(".dl-vol-preset")
-        .forEach((p) =>
-          p.classList.toggle("active", parseInt(p.dataset.val) === val)
+        .querySelectorAll(".volume-popup-preset")
+        .forEach((preset) =>
+          preset.classList.toggle(
+            "active",
+            parseInt(preset.dataset.value) === value
+          )
         );
     };
 
-    const getVolFromY = (clientY) => {
+    const getVolumeFromY = (clientY) => {
       const rect = track.getBoundingClientRect();
       return Math.round(
-        Math.min(1, Math.max(0, (rect.bottom - clientY) / rect.height)) * maxVol
+        Math.min(1, Math.max(0, (rect.bottom - clientY) / rect.height)) *
+          maxVolume
       );
     };
 
-    const setVolume = (val) => {
-      btn.textContent = String(val);
+    const setVolume = (value) => {
+      button.textContent = String(value);
       this._hass.callService("media_player", "volume_set", {
         entity_id: player.entity,
-        volume_level: val / 100,
+        volume_level: value / 100,
       });
     };
 
-    track.addEventListener("pointerdown", (e) => {
-      track.setPointerCapture(e.pointerId);
-      updateUI(getVolFromY(e.clientY));
-      e.preventDefault();
+    track.addEventListener("pointerdown", (event) => {
+      track.setPointerCapture(event.pointerId);
+      updateUI(getVolumeFromY(event.clientY));
+      event.preventDefault();
     });
-    track.addEventListener("pointermove", (e) => {
-      if (!track.hasPointerCapture(e.pointerId)) return;
-      updateUI(getVolFromY(e.clientY));
+    track.addEventListener("pointermove", (event) => {
+      if (!track.hasPointerCapture(event.pointerId)) return;
+      updateUI(getVolumeFromY(event.clientY));
     });
-    track.addEventListener("pointerup", (e) => {
-      if (!track.hasPointerCapture(e.pointerId)) return;
-      const val = getVolFromY(e.clientY);
-      updateUI(val);
-      setVolume(val);
+    track.addEventListener("pointerup", (event) => {
+      if (!track.hasPointerCapture(event.pointerId)) return;
+      const value = getVolumeFromY(event.clientY);
+      updateUI(value);
+      setVolume(value);
     });
 
-    dialog.querySelectorAll(".dl-vol-preset").forEach((preset) => {
+    dialog.querySelectorAll(".volume-popup-preset").forEach((preset) => {
       preset.addEventListener("click", () => {
-        const val = parseInt(preset.dataset.val);
-        updateUI(val);
-        setVolume(val);
+        const value = parseInt(preset.dataset.value);
+        updateUI(value);
+        setVolume(value);
       });
     });
 
@@ -318,44 +568,46 @@ class RadioCard extends HTMLElement {
       dialog.remove();
       document.removeEventListener("keydown", onEsc, { capture: true });
     };
-    const onEsc = (e) => {
-      if (e.key === "Escape") {
-        e.stopImmediatePropagation();
-        e.preventDefault();
+    const onEsc = (event) => {
+      if (event.key === "Escape") {
+        event.stopImmediatePropagation();
+        event.preventDefault();
         closePopup();
       }
     };
     document.addEventListener("keydown", onEsc, { capture: true });
-    dialog.addEventListener("cancel", (e) => {
-      e.preventDefault();
+    dialog.addEventListener("cancel", (event) => {
+      event.preventDefault();
       closePopup();
     });
-    dialog.addEventListener("click", (e) => {
-      if (!dialog.querySelector(".dl-vol-popup").contains(e.target))
+    dialog.addEventListener("click", (event) => {
+      if (!dialog.querySelector(".volume-popup").contains(event.target))
         closePopup();
     });
-    dialog.querySelector(".dl-vol-close").addEventListener("click", closePopup);
+    dialog.querySelector(".volume-popup-close").addEventListener("click", closePopup);
   }
 
   _bindEvents(isResumeMode) {
     this.shadowRoot
       .getElementById("station")
-      .addEventListener("change", (e) => {
-        this._selectedStation = parseInt(e.target.value);
+      .addEventListener("change", (event) => {
+        this._selectedStation = parseInt(event.target.value);
         this.shadowRoot.getElementById("play").disabled =
           this._selectedStation === -1 || this._selectedPlayer === -1;
       });
 
-    this.shadowRoot.getElementById("player").addEventListener("change", (e) => {
-      this._selectedPlayer = parseInt(e.target.value);
-      this.shadowRoot.getElementById("play").disabled =
-        this._selectedStation === -1 || this._selectedPlayer === -1;
-    });
+    this.shadowRoot
+      .getElementById("player")
+      .addEventListener("change", (event) => {
+        this._selectedPlayer = parseInt(event.target.value);
+        this.shadowRoot.getElementById("play").disabled =
+          this._selectedStation === -1 || this._selectedPlayer === -1;
+      });
 
     this.shadowRoot.getElementById("reset").addEventListener("click", () => {
-      (this.config.players || []).forEach((p) =>
+      (this.config.players || []).forEach((player) =>
         this._hass.callService("media_player", "media_stop", {
-          entity_id: p.entity,
+          entity_id: player.entity,
         })
       );
       this._masterEntity = null;
@@ -374,13 +626,13 @@ class RadioCard extends HTMLElement {
         this._pausedEntities = [];
         this._resumingEntities = [];
         this._groupedEntities = [];
-        (this.config.players || []).forEach((p) => {
+        (this.config.players || []).forEach((player) => {
           this._hass.callService("media_player", "unjoin", {
-            entity_id: p.entity,
+            entity_id: player.entity,
           });
           this._hass.callService("media_player", "volume_set", {
-            entity_id: p.entity,
-            volume_level: this._resetVol(),
+            entity_id: player.entity,
+            volume_level: this._resetVolume(),
           });
         });
         this.render();
@@ -398,14 +650,14 @@ class RadioCard extends HTMLElement {
         this._groupedEntities.includes(player.entity);
 
       const startPlayback = () => {
-        const currentVol =
+        const currentVolume =
           playerState && playerState.attributes.volume_level != null
             ? playerState.attributes.volume_level * 100
             : 0;
-        if (currentVol > VOL_START_THRESHOLD) {
+        if (currentVolume > VOLUME_START_THRESHOLD) {
           this._hass.callService("media_player", "volume_set", {
             entity_id: player.entity,
-            volume_level: this._resetVol(),
+            volume_level: this._resetVolume(),
           });
         }
         this._hass.callService("media_player", "play_media", {
@@ -417,7 +669,7 @@ class RadioCard extends HTMLElement {
 
       if (playerInGroup) {
         this._groupedEntities = this._groupedEntities.filter(
-          (e) => e !== player.entity
+          (entity) => entity !== player.entity
         );
         this._hass.callService("media_player", "unjoin", {
           entity_id: player.entity,
@@ -444,12 +696,12 @@ class RadioCard extends HTMLElement {
         this._pausedEntities = [];
       } else {
         this._pausedEntities = [];
-        (this.config.players || []).forEach((p) => {
-          const s = this._hass.states[p.entity];
-          if (s && s.state === "playing") {
-            this._pausedEntities.push(p.entity);
+        (this.config.players || []).forEach((player) => {
+          const state = this._hass.states[player.entity];
+          if (state && state.state === "playing") {
+            this._pausedEntities.push(player.entity);
             this._hass.callService("media_player", "media_pause", {
-              entity_id: p.entity,
+              entity_id: player.entity,
             });
           }
         });
@@ -457,9 +709,9 @@ class RadioCard extends HTMLElement {
       this.render();
     });
 
-    this.shadowRoot.querySelectorAll(".stop-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const player = this.config.players[parseInt(btn.dataset.index)];
+    this.shadowRoot.querySelectorAll(".stop-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        const player = this.config.players[parseInt(button.dataset.index)];
         this._hass.callService("media_player", "media_stop", {
           entity_id: player.entity,
         });
@@ -468,13 +720,13 @@ class RadioCard extends HTMLElement {
       });
     });
 
-    this.shadowRoot.querySelectorAll(".btn-pause").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const player = this.config.players[parseInt(btn.dataset.index)];
+    this.shadowRoot.querySelectorAll(".button-pause").forEach((button) => {
+      button.addEventListener("click", () => {
+        const player = this.config.players[parseInt(button.dataset.index)];
         if (this._pausedEntities.includes(player.entity)) {
           this._resumingEntities = [...this._resumingEntities, player.entity];
           this._pausedEntities = this._pausedEntities.filter(
-            (e) => e !== player.entity
+            (entity) => entity !== player.entity
           );
           this._hass.callService("media_player", "media_play", {
             entity_id: player.entity,
@@ -489,9 +741,9 @@ class RadioCard extends HTMLElement {
       });
     });
 
-    this.shadowRoot.querySelectorAll(".btn-group-toggle").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const player = this.config.players[parseInt(btn.dataset.index)];
+    this.shadowRoot.querySelectorAll(".button-group-toggle").forEach((button) => {
+      button.addEventListener("click", () => {
+        const player = this.config.players[parseInt(button.dataset.index)];
         const isMasterClick = this._masterEntity === player.entity;
 
         if (isMasterClick) {
@@ -500,14 +752,14 @@ class RadioCard extends HTMLElement {
           const haGroupMembers = (
             (state && state.attributes.group_members) ||
             []
-          ).filter((e) => e !== oldMaster);
+          ).filter((entity) => entity !== oldMaster);
           const newMaster =
             this._groupedEntities[0] || haGroupMembers[0] || null;
 
           this._masterEntity = newMaster;
           if (newMaster)
             this._groupedEntities = this._groupedEntities.filter(
-              (e) => e !== newMaster
+              (entity) => entity !== newMaster
             );
           this._hass.callService("media_player", "unjoin", {
             entity_id: oldMaster,
@@ -524,9 +776,9 @@ class RadioCard extends HTMLElement {
               UNJOIN_DELAY_MS
             );
           }
-        } else if (btn.dataset.grouped === "true") {
+        } else if (button.dataset.grouped === "true") {
           this._groupedEntities = this._groupedEntities.filter(
-            (e) => e !== player.entity
+            (entity) => entity !== player.entity
           );
           this._hass.callService("media_player", "unjoin", {
             entity_id: player.entity,
@@ -551,28 +803,28 @@ class RadioCard extends HTMLElement {
       });
     });
 
-    this.shadowRoot.querySelectorAll(".vol-display").forEach((btn) => {
-      btn.addEventListener("click", () => {
+    this.shadowRoot.querySelectorAll(".volume-display").forEach((button) => {
+      button.addEventListener("click", () => {
         this._showVolumePopup(
-          btn,
-          this.config.players[parseInt(btn.dataset.index)]
+          button,
+          this.config.players[parseInt(button.dataset.index)]
         );
       });
     });
 
-    this.shadowRoot.querySelectorAll(".vol-down, .vol-up").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const isUp = btn.classList.contains("vol-up");
-        const player = this.config.players[parseInt(btn.dataset.index)];
-        const display = btn.parentElement.querySelector(".vol-display");
-        const newVal = Math.min(
-          this._maxVol(),
-          Math.max(0, parseInt(display.textContent) + (isUp ? 1 : -1))
+    this.shadowRoot.querySelectorAll(".volume-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        const step = parseInt(button.dataset.step);
+        const player = this.config.players[parseInt(button.dataset.index)];
+        const display = button.parentElement.querySelector(".volume-display");
+        const newValue = Math.min(
+          this._maxVolume(),
+          Math.max(0, parseInt(display.textContent) + step)
         );
-        display.textContent = newVal;
+        display.textContent = newValue;
         this._hass.callService("media_player", "volume_set", {
           entity_id: player.entity,
-          volume_level: newVal / 100,
+          volume_level: newValue / 100,
         });
       });
     });
@@ -583,16 +835,16 @@ class RadioCard extends HTMLElement {
 
     if (!this._masterAutoDetected) {
       this._masterAutoDetected = true;
-      const playing = (this.config.players || []).find((p) => {
-        const s = this._hass.states[p.entity];
-        return s && (s.state === "playing" || s.state === "paused");
+      const playing = (this.config.players || []).find((player) => {
+        const state = this._hass.states[player.entity];
+        return state && (state.state === "playing" || state.state === "paused");
       });
       if (playing) this._masterEntity = playing.entity;
     }
 
     this._resumingEntities = this._resumingEntities.filter((entity) => {
-      const s = this._hass.states[entity];
-      return !s || s.state !== "playing";
+      const state = this._hass.states[entity];
+      return !state || state.state !== "playing";
     });
 
     const stations = this.config.stations || [];
@@ -602,8 +854,8 @@ class RadioCard extends HTMLElement {
       `<option value="-1"${this._selectedStation === -1 ? " selected" : ""}></option>` +
       stations
         .map(
-          (s, i) =>
-            `<option value="${i}"${i === this._selectedStation ? " selected" : ""}>${s.name}</option>`
+          (station, index) =>
+            `<option value="${index}"${index === this._selectedStation ? " selected" : ""}>${station.name}</option>`
         )
         .join("");
 
@@ -611,8 +863,8 @@ class RadioCard extends HTMLElement {
       `<option value="-1"${this._selectedPlayer === -1 ? " selected" : ""}></option>` +
       players
         .map(
-          (p, i) =>
-            `<option value="${i}"${i === this._selectedPlayer ? " selected" : ""}>${p.name}</option>`
+          (player, index) =>
+            `<option value="${index}"${index === this._selectedPlayer ? " selected" : ""}>${player.name}</option>`
         )
         .join("");
 
@@ -620,13 +872,13 @@ class RadioCard extends HTMLElement {
       this._selectedStation === -1 || this._selectedPlayer === -1
         ? " disabled"
         : "";
-    const anyPlaying = players.some((p) => {
-      const s = this._hass.states[p.entity];
-      return s && s.state === "playing";
+    const anyPlaying = players.some((player) => {
+      const state = this._hass.states[player.entity];
+      return state && state.state === "playing";
     });
-    const anyPaused = players.some((p) => {
-      const s = this._hass.states[p.entity];
-      return s && s.state === "paused";
+    const anyPaused = players.some((player) => {
+      const state = this._hass.states[player.entity];
+      return state && state.state === "paused";
     });
     const isResumeMode = !anyPlaying && this._pausedEntities.length > 0;
     const stopDisabled =
@@ -635,9 +887,9 @@ class RadioCard extends HTMLElement {
         : " disabled";
     const pauseDisabled = anyPlaying || isResumeMode ? "" : " disabled";
     const pauseIcon = isResumeMode ? "mdi:play-pause" : "mdi:pause";
-    const resetDisabled = players.some((p) => {
-      const s = this._hass.states[p.entity];
-      return s && (s.state === "playing" || s.state === "paused");
+    const resetDisabled = players.some((player) => {
+      const state = this._hass.states[player.entity];
+      return state && (state.state === "playing" || state.state === "paused");
     })
       ? " disabled"
       : "";
@@ -681,33 +933,33 @@ class RadioCardEditor extends HTMLElement {
   }
 
   connectedCallback() {
-    this._escHandler = (e) => {
+    this._escHandler = (event) => {
       if (
-        e.key !== "Escape" ||
-        document.querySelector(".pp-wrapper,.sp-wrapper,.dl-vol-wrapper")
+        event.key !== "Escape" ||
+        document.querySelector(".player-picker-wrapper,.station-picker-wrapper,.volume-popup-wrapper")
       )
         return;
-      const dlg = this._findHaEditDialog();
-      if (!dlg) return;
-      e.stopImmediatePropagation();
-      e.preventDefault();
-      if (typeof dlg.closeDialog === "function") {
+      const dialog = this._findHaEditDialog();
+      if (!dialog) return;
+      event.stopImmediatePropagation();
+      event.preventDefault();
+      if (typeof dialog.closeDialog === "function") {
         // If no changes were made, reset HA's internal dirty flag to avoid the
         // "Unsaved Changes" confirmation appearing unnecessarily.
-        if (!this._editorDirty) dlg._dirty = false;
-        dlg.closeDialog();
+        if (!this._editorDirty) dialog._dirty = false;
+        dialog.closeDialog();
         return;
       }
-      const btn = dlg.shadowRoot?.querySelector(
+      const button = dialog.shadowRoot?.querySelector(
         "ha-icon-button[slot='navigationIcon'], mwc-icon-button[slot='navigationIcon'], [dialogaction='close']"
       );
-      if (btn) {
-        btn.click();
+      if (button) {
+        button.click();
         return;
       }
       (
-        dlg.shadowRoot?.querySelector("ha-dialog") ??
-        dlg.shadowRoot?.querySelector("dialog")
+        dialog.shadowRoot?.querySelector("ha-dialog") ??
+        dialog.shadowRoot?.querySelector("dialog")
       )?.dispatchEvent(new Event("cancel", { cancelable: true }));
     };
     document.addEventListener("keydown", this._escHandler, { capture: true });
@@ -720,26 +972,26 @@ class RadioCardEditor extends HTMLElement {
   }
 
   _findHaEditDialog() {
-    const sel = "hui-dialog-edit-card,hui-edit-card-dialog";
-    const q = (root) => root?.querySelector?.(sel) ?? null;
+    const selector = "hui-dialog-edit-card,hui-edit-card-dialog";
+    const findDialogIn = (root) => root?.querySelector?.(selector) ?? null;
     // querySelector does NOT pierce shadow roots; walk each boundary manually.
     // HA path: document → home-assistant → home-assistant-main
     //          → ha-panel-lovelace / partial-panel-resolver → hui-root → dialog
     const ha = document.querySelector("home-assistant");
-    const haR = ha?.shadowRoot;
-    const main = haR?.querySelector("home-assistant-main");
-    const mainR = main?.shadowRoot;
+    const homeAssistantShadowRoot = ha?.shadowRoot;
+    const main = homeAssistantShadowRoot?.querySelector("home-assistant-main");
+    const mainShadowRoot = main?.shadowRoot;
     const panel =
-      mainR?.querySelector("ha-panel-lovelace") ??
-      mainR?.querySelector("partial-panel-resolver");
-    const panelR = panel?.shadowRoot;
-    const huiRoot = panelR?.querySelector("hui-root");
+      mainShadowRoot?.querySelector("ha-panel-lovelace") ??
+      mainShadowRoot?.querySelector("partial-panel-resolver");
+    const panelShadowRoot = panel?.shadowRoot;
+    const huiRoot = panelShadowRoot?.querySelector("hui-root");
     return (
-      q(document) ??
-      q(haR) ??
-      q(mainR) ??
-      q(panelR) ??
-      q(huiRoot?.shadowRoot) ??
+      findDialogIn(document) ??
+      findDialogIn(homeAssistantShadowRoot) ??
+      findDialogIn(mainShadowRoot) ??
+      findDialogIn(panelShadowRoot) ??
+      findDialogIn(huiRoot?.shadowRoot) ??
       null
     );
   }
@@ -751,8 +1003,8 @@ class RadioCardEditor extends HTMLElement {
       playerLabel: config.playerLabel || "Lautsprecher",
       maxVolume: config.maxVolume ?? MAX_VOLUME,
       resetVolume: config.resetVolume ?? RESET_VOLUME,
-      stations: (config.stations || []).map((s) => ({ ...s })),
-      players: (config.players || []).map((p) => ({ ...p })),
+      stations: (config.stations || []).map((station) => ({ ...station })),
+      players: (config.players || []).map((player) => ({ ...player })),
     };
     this._editorDirty = false;
     this._render();
@@ -773,7 +1025,7 @@ class RadioCardEditor extends HTMLElement {
     );
   }
 
-  _esc(str) {
+  _escapeHtml(str) {
     return String(str || "")
       .replace(/&/g, "&amp;")
       .replace(/"/g, "&quot;")
@@ -790,16 +1042,16 @@ class RadioCardEditor extends HTMLElement {
     while (node && node !== document.documentElement) {
       const tag = node.tagName?.toLowerCase() || "";
       if (tag === "ha-dialog" || tag === "hui-edit-card-dialog") {
-        const r = node.getBoundingClientRect();
-        if (r.width > 100) return r;
+        const rect = node.getBoundingClientRect();
+        if (rect.width > 100) return rect;
       }
-      const r = node.getBoundingClientRect();
+      const rect = node.getBoundingClientRect();
       if (
-        r.width > editorRect.width + 100 &&
-        r.width < window.innerWidth * 0.99 &&
-        r.height > 300
+        rect.width > editorRect.width + 100 &&
+        rect.width < window.innerWidth * 0.99 &&
+        rect.height > 300
       )
-        return r;
+        return rect;
       node =
         node.parentElement ??
         (node.getRootNode() instanceof ShadowRoot
@@ -822,52 +1074,186 @@ class RadioCardEditor extends HTMLElement {
   }
 
   _render() {
-    const s = this._config.stations || [];
-    const p = this._config.players || [];
+    const stations = this._config.stations || [];
+    const players = this._config.players || [];
 
     this.shadowRoot.innerHTML = `
       <style>
-        :host { display: block; padding-bottom: 16px; }
-        .section-title { font-weight: bold; font-size: 0.95em; margin: 16px 0 6px; color: var(--primary-text-color); padding: 0 16px; display: flex; align-items: center; justify-content: space-between; }
-        .sort-btn { background: transparent; border: none; cursor: pointer; color: var(--secondary-text-color); padding: 4px; display: flex; align-items: center; border-radius: 4px; }
-        .sort-btn:hover { color: var(--primary-text-color); background: rgba(128,128,128,0.15); }
-        .sort-btn ha-icon { --mdc-icon-size: 18px; pointer-events: none; }
-        .item { display: flex; align-items: flex-end; gap: 8px; padding: 4px 16px; }
-        .item.drag-over { outline: 2px solid var(--primary-color); border-radius: 4px; background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08); }
-        .field { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-        .field-label { font-size: 0.75em; color: var(--secondary-text-color); }
-        .left-col { flex: 1; display: flex; align-items: flex-end; gap: 8px; min-width: 0; }
-        .left-col .field { flex: 1; }
-        input[type="text"], input[type="number"] {
-          width: 100%; height: 36px; padding: 0 10px; box-sizing: border-box;
-          border: 1px solid var(--divider-color, #555); border-radius: 4px;
-          background: var(--secondary-background-color, #1c1c1c);
-          color: var(--primary-text-color); font-size: 0.9em;
+        :host {
+          display: block;
+          padding-bottom: 16px;
         }
-        input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: var(--primary-color); }
-        input[type="number"] { -moz-appearance: textfield; }
-        input[type="number"]::-webkit-outer-spin-button,
-        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
-        .del-btn  { background: transparent; border: none; cursor: pointer; color: var(--error-color, #c00); padding: 6px; flex-shrink: 0; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
-        .del-btn ha-icon { --mdc-icon-size: 20px; pointer-events: none; }
-        .drag-btn { background: transparent; border: none; cursor: grab; color: var(--secondary-text-color); padding: 6px; flex-shrink: 0; width: 28px; height: 36px; display: flex; align-items: center; justify-content: center; touch-action: none; }
-        .drag-btn:active { cursor: grabbing; }
-        .drag-btn ha-icon { --mdc-icon-size: 18px; pointer-events: none; }
-        .add-btn { display: block; width: calc(100% - 32px); margin: 8px 16px 0; padding: 10px;
-          background: transparent; border: 1px dashed var(--divider-color, #555); border-radius: 5px;
-          color: var(--secondary-text-color); cursor: pointer; font-size: 0.9em; text-align: center; box-sizing: border-box; }
-        .add-btn:hover { background: rgba(128,128,128,0.1); }
+
+        .section-title {
+          font-weight: bold;
+          font-size: 0.95em;
+          margin: 16px 0 6px;
+          color: var(--primary-text-color);
+          padding: 0 16px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .config-sort-button {
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          color: var(--secondary-text-color);
+          padding: 4px;
+          display: flex;
+          align-items: center;
+          border-radius: 5px;
+        }
+
+        .config-sort-button:hover {
+          color: var(--primary-text-color);
+          background: rgba(128,128,128,0.15);
+        }
+
+        .config-sort-button ha-icon {
+          --mdc-icon-size: 18px;
+          pointer-events: none;
+        }
+
+        .item {
+          display: flex;
+          align-items: flex-end;
+          gap: 8px;
+          padding: 4px 16px;
+        }
+
+        .item.drag-over {
+          outline: 2px solid var(--primary-color);
+          border-radius: 4px;
+          background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
+        }
+
+        .field {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          min-width: 0;
+        }
+
+        .field-label {
+          font-size: 0.75em;
+          color: var(--secondary-text-color);
+        }
+
+        .left-col {
+          flex: 1;
+          display: flex;
+          align-items: flex-end;
+          gap: 8px;
+          min-width: 0;
+        }
+
+        .left-col .field {
+          flex: 1;
+        }
+
+        .config-input {
+          width: 100%;
+          height: 36px;
+          padding: 0 10px;
+          box-sizing: border-box;
+          border: 1px solid var(--divider-color, #555);
+          border-radius: 4px;
+          background: var(--secondary-background-color, #1c1c1c);
+          color: var(--primary-text-color);
+          font-size: 0.9em;
+        }
+
+        .config-input:focus {
+          outline: none;
+          border-color: var(--primary-color);
+        }
+
+        .config-number-input {
+          -moz-appearance: textfield;
+        }
+
+        .config-number-input::-webkit-outer-spin-button,
+        .config-number-input::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+        }
+
+        .config-delete-button {
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          color: var(--error-color, #c00);
+          padding: 6px;
+          flex-shrink: 0;
+          width: 36px;
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 5px;
+        }
+
+        .config-delete-button ha-icon {
+          --mdc-icon-size: 20px;
+          pointer-events: none;
+        }
+
+        .config-drag-button {
+          background: transparent;
+          border: none;
+          cursor: grab;
+          color: var(--secondary-text-color);
+          padding: 6px;
+          flex-shrink: 0;
+          width: 28px;
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          touch-action: none;
+          border-radius: 5px;
+        }
+
+        .config-drag-button:active {
+          cursor: grabbing;
+        }
+
+        .config-drag-button ha-icon {
+          --mdc-icon-size: 18px;
+          pointer-events: none;
+        }
+
+        .add-btn {
+          display: block;
+          width: calc(100% - 32px);
+          margin: 8px 16px 0;
+          padding: 10px;
+          background: transparent;
+          border: 1px dashed var(--divider-color, #555);
+          border-radius: 5px;
+          color: var(--secondary-text-color);
+          cursor: pointer;
+          font-size: 0.9em;
+          text-align: center;
+          box-sizing: border-box;
+        }
+
+        .add-btn:hover {
+          background: rgba(128,128,128,0.1);
+        }
       </style>
 
       <div class="section-title">Beschriftungen</div>
       <div class="item">
         <div class="field">
           <div class="field-label">Linkes Label</div>
-          <input type="text" id="station-label" value="${this._esc(this._config.stationLabel)}">
+          <input type="text" id="station-label" class="config-input" value="${this._escapeHtml(this._config.stationLabel)}">
         </div>
         <div class="field">
           <div class="field-label">Rechtes Label</div>
-          <input type="text" id="player-label" value="${this._esc(this._config.playerLabel)}">
+          <input type="text" id="player-label" class="config-input" value="${this._escapeHtml(this._config.playerLabel)}">
         </div>
       </div>
 
@@ -875,34 +1261,40 @@ class RadioCardEditor extends HTMLElement {
       <div class="item">
         <div class="field">
           <div class="field-label">Max. Lautstärke (1–100)</div>
-          <input type="number" id="max-volume" min="1" max="100" value="${this._config.maxVolume}">
+          <input type="number" id="max-volume" class="config-input config-number-input" min="1" max="100" value="${this._config.maxVolume}">
         </div>
         <div class="field">
           <div class="field-label">Reset-Lautstärke (0–100)</div>
-          <input type="number" id="reset-volume" min="0" max="100" value="${this._config.resetVolume}">
+          <input type="number" id="reset-volume" class="config-input config-number-input" min="0" max="100" value="${this._config.resetVolume}">
         </div>
       </div>
 
       <div class="section-title">
         <span>Sender</span>
-        <button class="sort-btn" data-section="stations" title="Alphabetisch sortieren"><ha-icon icon="mdi:sort-alphabetical-ascending"></ha-icon></button>
+        <button class="config-sort-button" data-section="stations" title="Alphabetisch sortieren">
+          <ha-icon icon="mdi:sort-alphabetical-ascending"/>
+        </button>
       </div>
-      ${s
+      ${stations
         .map(
-          (st, i) => `
-        <div class="item" draggable="true" data-drag-section="stations" data-drag-index="${i}">
-          <button class="drag-btn"><ha-icon icon="mdi:drag"></ha-icon></button>
+          (station, index) => `
+        <div class="item" draggable="true" data-drag-section="stations" data-drag-index="${index}">
+          <button class="config-drag-button">
+            <ha-icon icon="mdi:drag"/>
+          </button>
           <div class="left-col">
             <div class="field">
               <div class="field-label">Name</div>
-              <input type="text" class="st-name" data-index="${i}" value="${this._esc(st.name)}">
+              <input type="text" class="config-input st-name" data-index="${index}" value="${this._escapeHtml(station.name)}">
             </div>
           </div>
           <div class="field">
             <div class="field-label">URL</div>
-            <input type="text" class="st-url" data-index="${i}" value="${this._esc(st.url)}">
+            <input type="text" class="config-input st-url" data-index="${index}" value="${this._escapeHtml(station.url)}">
           </div>
-          <button class="del-btn" data-section="stations" data-index="${i}"><ha-icon icon="mdi:delete"></ha-icon></button>
+          <button class="config-delete-button" data-section="stations" data-index="${index}">
+            <ha-icon icon="mdi:delete"/>
+          </button>
         </div>
       `
         )
@@ -911,24 +1303,30 @@ class RadioCardEditor extends HTMLElement {
 
       <div class="section-title">
         <span>Lautsprecher</span>
-        <button class="sort-btn" data-section="players" title="Alphabetisch sortieren"><ha-icon icon="mdi:sort-alphabetical-ascending"></ha-icon></button>
+        <button class="config-sort-button" data-section="players" title="Alphabetisch sortieren">
+          <ha-icon icon="mdi:sort-alphabetical-ascending"/>
+        </button>
       </div>
-      ${p
+      ${players
         .map(
-          (pl, i) => `
-        <div class="item" draggable="true" data-drag-section="players" data-drag-index="${i}">
-          <button class="drag-btn"><ha-icon icon="mdi:drag"></ha-icon></button>
+          (player, index) => `
+        <div class="item" draggable="true" data-drag-section="players" data-drag-index="${index}">
+          <button class="config-drag-button">
+            <ha-icon icon="mdi:drag"/>
+          </button>
           <div class="left-col">
             <div class="field">
               <div class="field-label">Entity ID</div>
-              <input type="text" class="pl-entity" data-index="${i}" value="${this._esc(pl.entity)}" placeholder="media_player.name">
+              <input type="text" class="config-input pl-entity" data-index="${index}" value="${this._escapeHtml(player.entity)}" placeholder="media_player.name">
             </div>
           </div>
           <div class="field">
             <div class="field-label">Anzeigename</div>
-            <input type="text" class="pl-name" data-index="${i}" value="${this._esc(pl.name)}">
+            <input type="text" class="config-input pl-name" data-index="${index}" value="${this._escapeHtml(player.name)}">
           </div>
-          <button class="del-btn" data-section="players" data-index="${i}"><ha-icon icon="mdi:delete"></ha-icon></button>
+          <button class="config-delete-button" data-section="players" data-index="${index}">
+            <ha-icon icon="mdi:delete"/>
+          </button>
         </div>
       `
         )
@@ -940,10 +1338,10 @@ class RadioCardEditor extends HTMLElement {
   }
 
   _showPlayerPicker() {
-    if (document.querySelector(".pp-wrapper")) return;
+    if (document.querySelector(".player-picker-wrapper")) return;
 
-    const ref = this._getPickerRefRect();
-    const added = new Set(this._config.players.map((p) => p.entity));
+    const referenceRect = this._getPickerRefRect();
+    const added = new Set(this._config.players.map((player) => player.entity));
     const available = Object.entries(this._hass.states)
       .filter(([id]) => id.startsWith("media_player.") && !added.has(id))
       .map(([id, state]) => ({
@@ -953,46 +1351,147 @@ class RadioCardEditor extends HTMLElement {
       .sort((a, b) => a.name.localeCompare(b.name));
 
     const dialog = document.createElement("dialog");
-    dialog.className = "pp-wrapper";
+    dialog.className = "player-picker-wrapper";
     dialog.style.cssText =
       "display:block;padding:0;margin:0;border:none;background:transparent;overflow:visible;max-width:none;max-height:none;pointer-events:none";
     dialog.innerHTML = `
       <style>
-        dialog.pp-wrapper::backdrop { display: none; }
-        .pp-overlay  { position: fixed; left: ${ref.left}px; top: ${ref.top}px; width: ${ref.width}px; height: ${ref.height}px; background: transparent; display: flex; align-items: center; justify-content: center; overflow: hidden; pointer-events: all; box-sizing: border-box; }
-        .pp-popup    { background: var(--card-background-color, #2d2d2d); border-radius: 12px; min-width: 300px; max-width: 420px; max-height: 60vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
-        .pp-header   { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--divider-color, #444); flex-shrink: 0; }
-        .pp-title    { font-weight: normal; font-size: var(--dialog-heading-font-size, 1.5rem); color: var(--primary-text-color, #fff); }
-        .pp-close    { background: transparent; border: none; cursor: pointer; color: var(--secondary-text-color); padding: 4px; display: flex; }
-        .pp-close ha-icon { --mdc-icon-size: 20px; pointer-events: none; }
-        .pp-list     { overflow-y: auto; flex: 1; }
-        .pp-item     { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--divider-color, #333); }
-        .pp-item:last-child { border-bottom: none; }
-        .pp-item:hover { background: rgba(128,128,128,0.12); }
-        .pp-item ha-icon   { --mdc-icon-size: 22px; color: var(--secondary-text-color); flex-shrink: 0; }
-        .pp-item-info      { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-        .pp-item-name      { font-size: 0.95em; color: var(--primary-text-color, #fff); }
-        .pp-item-id        { font-size: 0.78em; color: var(--secondary-text-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .pp-empty    { padding: 24px 16px; text-align: center; color: var(--secondary-text-color); font-size: 0.9em; }
+        dialog.player-picker-wrapper::backdrop {
+          display: none;
+        }
+
+        .player-picker-overlay {
+          position: fixed;
+          left: ${referenceRect.left}px;
+          top: ${referenceRect.top}px;
+          width: ${referenceRect.width}px;
+          height: ${referenceRect.height}px;
+          background: transparent;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          pointer-events: all;
+          box-sizing: border-box;
+        }
+
+        .player-picker-popup {
+          background: var(--card-background-color, #2d2d2d);
+          border-radius: 12px;
+          min-width: 300px;
+          max-width: 420px;
+          max-height: 60vh;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+
+        .player-picker-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 14px 16px;
+          border-bottom: 1px solid var(--divider-color, #444);
+          flex-shrink: 0;
+        }
+
+        .player-picker-title {
+          font-weight: normal;
+          font-size: var(--dialog-heading-font-size, 1.5rem);
+          color: var(--primary-text-color, #fff);
+        }
+
+        .player-picker-close {
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          color: var(--secondary-text-color);
+          padding: 4px;
+          display: flex;
+          border-radius: 5px;
+        }
+
+        .player-picker-close ha-icon {
+          --mdc-icon-size: 20px;
+          pointer-events: none;
+        }
+
+        .player-picker-list {
+          overflow-y: auto;
+          flex: 1;
+        }
+
+        .player-picker-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 16px;
+          cursor: pointer;
+          border-bottom: 1px solid var(--divider-color, #333);
+        }
+
+        .player-picker-item:last-child {
+          border-bottom: none;
+        }
+
+        .player-picker-item:hover {
+          background: rgba(128,128,128,0.12);
+        }
+
+        .player-picker-item ha-icon {
+          --mdc-icon-size: 22px;
+          color: var(--secondary-text-color);
+          flex-shrink: 0;
+        }
+
+        .player-picker-item-info {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          min-width: 0;
+        }
+
+        .player-picker-item-name {
+          font-size: 0.95em;
+          color: var(--primary-text-color, #fff);
+        }
+
+        .player-picker-item-id {
+          font-size: 0.78em;
+          color: var(--secondary-text-color);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .player-picker-empty {
+          padding: 24px 16px;
+          text-align: center;
+          color: var(--secondary-text-color);
+          font-size: 0.9em;
+        }
       </style>
-      <div class="pp-overlay">
-        <div class="pp-popup">
-          <div class="pp-header">
-            <span class="pp-title">Lautsprecher auswählen</span>
-            <button class="pp-close"><ha-icon icon="mdi:close"></ha-icon></button>
+      <div class="player-picker-overlay">
+        <div class="player-picker-popup">
+          <div class="player-picker-header">
+            <span class="player-picker-title">Lautsprecher auswählen</span>
+            <button class="player-picker-close">
+              <ha-icon icon="mdi:close"/>
+            </button>
           </div>
-          <div class="pp-list">
+          <div class="player-picker-list">
             ${
               available.length === 0
-                ? '<div class="pp-empty">Keine weiteren Lautsprecher verfügbar</div>'
+                ? '<div class="player-picker-empty">Keine weiteren Lautsprecher verfügbar</div>'
                 : available
                     .map(
-                      (e) => `
-                  <div class="pp-item" data-entity="${e.id}" data-name="${this._esc(e.name)}">
-                    <ha-icon icon="mdi:speaker"></ha-icon>
-                    <div class="pp-item-info">
-                      <div class="pp-item-name">${this._esc(e.name)}</div>
-                      <div class="pp-item-id">${e.id}</div>
+                      (item) => `
+                  <div class="player-picker-item" data-entity="${item.id}" data-name="${this._escapeHtml(item.name)}">
+                    <ha-icon icon="mdi:speaker"/>
+                    <div class="player-picker-item-info">
+                      <div class="player-picker-item-name">${this._escapeHtml(item.name)}</div>
+                      <div class="player-picker-item-id">${item.id}</div>
                     </div>
                   </div>`
                     )
@@ -1010,25 +1509,25 @@ class RadioCardEditor extends HTMLElement {
       dialog.remove();
       document.removeEventListener("keydown", onEsc, { capture: true });
     };
-    const onEsc = (e) => {
-      if (e.key === "Escape") {
-        e.stopImmediatePropagation();
-        e.preventDefault();
+    const onEsc = (event) => {
+      if (event.key === "Escape") {
+        event.stopImmediatePropagation();
+        event.preventDefault();
         close();
       }
     };
     document.addEventListener("keydown", onEsc, { capture: true });
-    dialog.addEventListener("cancel", (e) => {
-      e.preventDefault();
+    dialog.addEventListener("cancel", (event) => {
+      event.preventDefault();
       close();
     });
 
-    dialog.querySelector(".pp-close").addEventListener("click", close);
-    dialog.querySelector(".pp-overlay").addEventListener("click", (e) => {
-      if (e.target === dialog.querySelector(".pp-overlay")) close();
+    dialog.querySelector(".player-picker-close").addEventListener("click", close);
+    dialog.querySelector(".player-picker-overlay").addEventListener("click", (event) => {
+      if (event.target === dialog.querySelector(".player-picker-overlay")) close();
     });
 
-    dialog.querySelectorAll(".pp-item").forEach((item) => {
+    dialog.querySelectorAll(".player-picker-item").forEach((item) => {
       item.addEventListener("click", () => {
         this._config.players.push({
           entity: item.dataset.entity,
@@ -1042,49 +1541,188 @@ class RadioCardEditor extends HTMLElement {
   }
 
   _showStationPicker() {
-    if (document.querySelector(".sp-wrapper")) return;
+    if (document.querySelector(".station-picker-wrapper")) return;
 
-    const ref = this._getPickerRefRect();
-    const added = new Set(this._config.stations.map((s) => s.url));
+    const referenceRect = this._getPickerRefRect();
+    const added = new Set(this._config.stations.map((station) => station.url));
 
     const dialog = document.createElement("dialog");
-    dialog.className = "sp-wrapper";
+    dialog.className = "station-picker-wrapper";
     dialog.style.cssText =
       "display:block;padding:0;margin:0;border:none;background:transparent;overflow:visible;max-width:none;max-height:none;pointer-events:none";
     dialog.innerHTML = `
       <style>
-        dialog.sp-wrapper::backdrop { display: none; }
-        .sp-overlay    { position: fixed; left: ${ref.left}px; top: ${ref.top}px; width: ${ref.width}px; height: ${ref.height}px; background: transparent; display: flex; align-items: center; justify-content: center; overflow: hidden; pointer-events: all; box-sizing: border-box; }
-        .sp-popup      { background: var(--card-background-color, #2d2d2d); border-radius: 12px; width: 420px; max-width: calc(100% - 32px); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
-        .sp-header     { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--divider-color, #444); flex-shrink: 0; }
-        .sp-title      { font-weight: normal; font-size: var(--dialog-heading-font-size, 1.5rem); color: var(--primary-text-color, #fff); }
-        .sp-close      { background: transparent; border: none; cursor: pointer; color: var(--secondary-text-color); padding: 4px; display: flex; }
-        .sp-close ha-icon { --mdc-icon-size: 20px; pointer-events: none; }
-        .sp-search-wrap { padding: 10px 16px; border-bottom: 1px solid var(--divider-color, #444); flex-shrink: 0; }
-        .sp-search     { width: 100%; height: 36px; padding: 0 10px; box-sizing: border-box; border: 1px solid var(--divider-color, #555); border-radius: 4px; background: var(--secondary-background-color, #1c1c1c); color: var(--primary-text-color); font-size: 0.9em; outline: none; }
-        .sp-search:focus { border-color: var(--primary-color); }
-        .sp-list       { overflow-y: auto; height: calc(6 * 48px); }
-        .sp-item       { display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer; border-bottom: 1px solid var(--divider-color, #333); min-height: 48px; box-sizing: border-box; }
-        .sp-item:last-child { border-bottom: none; }
-        .sp-item:hover { background: rgba(128,128,128,0.12); }
-        .sp-item ha-icon   { --mdc-icon-size: 22px; color: var(--secondary-text-color); flex-shrink: 0; }
-        .sp-item-info      { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-        .sp-item-name      { font-size: 0.95em; color: var(--primary-text-color, #fff); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .sp-item-sub       { font-size: 0.78em; color: var(--secondary-text-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .sp-status     { height: 100%; display: flex; align-items: center; justify-content: center; color: var(--secondary-text-color); font-size: 0.9em; }
-        .sp-spinner    { width: 32px; height: 32px; border: 3px solid var(--divider-color, #444); border-top-color: var(--primary-color); border-radius: 50%; animation: sp-spin 0.8s linear infinite; }
-        @keyframes sp-spin { to { transform: rotate(360deg); } }
+        dialog.station-picker-wrapper::backdrop {
+          display: none;
+        }
+
+        .station-picker-overlay {
+          position: fixed;
+          left: ${referenceRect.left}px;
+          top: ${referenceRect.top}px;
+          width: ${referenceRect.width}px;
+          height: ${referenceRect.height}px;
+          background: transparent;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          pointer-events: all;
+          box-sizing: border-box;
+        }
+
+        .station-picker-popup {
+          background: var(--card-background-color, #2d2d2d);
+          border-radius: 12px;
+          width: 420px;
+          max-width: calc(100% - 32px);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+
+        .station-picker-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 14px 16px;
+          border-bottom: 1px solid var(--divider-color, #444);
+          flex-shrink: 0;
+        }
+
+        .station-picker-title {
+          font-weight: normal;
+          font-size: var(--dialog-heading-font-size, 1.5rem);
+          color: var(--primary-text-color, #fff);
+        }
+
+        .station-picker-close {
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          color: var(--secondary-text-color);
+          padding: 4px;
+          display: flex;
+          border-radius: 5px;
+        }
+
+        .station-picker-close ha-icon {
+          --mdc-icon-size: 20px;
+          pointer-events: none;
+        }
+
+        .station-picker-search-wrap {
+          padding: 10px 16px;
+          border-bottom: 1px solid var(--divider-color, #444);
+          flex-shrink: 0;
+        }
+
+        .station-picker-search {
+          width: 100%;
+          height: 36px;
+          padding: 0 10px;
+          box-sizing: border-box;
+          border: 1px solid var(--divider-color, #555);
+          border-radius: 4px;
+          background: var(--secondary-background-color, #1c1c1c);
+          color: var(--primary-text-color);
+          font-size: 0.9em;
+          outline: none;
+        }
+
+        .station-picker-search:focus {
+          border-color: var(--primary-color);
+        }
+
+        .station-picker-list {
+          overflow-y: auto;
+          height: calc(6 * 48px);
+        }
+
+        .station-picker-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 10px 16px;
+          cursor: pointer;
+          border-bottom: 1px solid var(--divider-color, #333);
+          min-height: 48px;
+          box-sizing: border-box;
+        }
+
+        .station-picker-item:last-child {
+          border-bottom: none;
+        }
+
+        .station-picker-item:hover {
+          background: rgba(128,128,128,0.12);
+        }
+
+        .station-picker-item ha-icon {
+          --mdc-icon-size: 22px;
+          color: var(--secondary-text-color);
+          flex-shrink: 0;
+        }
+
+        .station-picker-item-info {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          min-width: 0;
+          flex: 1;
+        }
+
+        .station-picker-item-name {
+          font-size: 0.95em;
+          color: var(--primary-text-color, #fff);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .station-picker-item-sub {
+          font-size: 0.78em;
+          color: var(--secondary-text-color);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .station-picker-status {
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--secondary-text-color);
+          font-size: 0.9em;
+        }
+
+        .station-picker-spinner {
+          width: 32px;
+          height: 32px;
+          border: 3px solid var(--divider-color, #444);
+          border-top-color: var(--primary-color);
+          border-radius: 50%;
+          animation: station-picker-spin 0.8s linear infinite;
+        }
+
+        @keyframes station-picker-spin {
+          to { transform: rotate(360deg); }
+        }
       </style>
-      <div class="sp-overlay">
-        <div class="sp-popup">
-          <div class="sp-header">
-            <span class="sp-title">Sender auswählen</span>
-            <button class="sp-close"><ha-icon icon="mdi:close"></ha-icon></button>
+      <div class="station-picker-overlay">
+        <div class="station-picker-popup">
+          <div class="station-picker-header">
+            <span class="station-picker-title">Sender auswählen</span>
+            <button class="station-picker-close">
+              <ha-icon icon="mdi:close"/>
+            </button>
           </div>
-          <div class="sp-search-wrap">
-            <input type="text" class="sp-search" placeholder="Sender suchen...">
+          <div class="station-picker-search-wrap">
+            <input type="text" class="station-picker-search" placeholder="Sender suchen...">
           </div>
-          <div class="sp-list"><div class="sp-status"><div class="sp-spinner"></div></div></div>
+          <div class="station-picker-list"><div class="station-picker-status"><div class="station-picker-spinner"></div></div></div>
         </div>
       </div>
     `;
@@ -1096,47 +1734,48 @@ class RadioCardEditor extends HTMLElement {
       dialog.remove();
       document.removeEventListener("keydown", onEsc, { capture: true });
     };
-    const onEsc = (e) => {
-      if (e.key === "Escape") {
-        e.stopImmediatePropagation();
-        e.preventDefault();
+    const onEsc = (event) => {
+      if (event.key === "Escape") {
+        event.stopImmediatePropagation();
+        event.preventDefault();
         close();
       }
     };
     document.addEventListener("keydown", onEsc, { capture: true });
-    dialog.addEventListener("cancel", (e) => {
-      e.preventDefault();
+    dialog.addEventListener("cancel", (event) => {
+      event.preventDefault();
       close();
     });
 
-    dialog.querySelector(".sp-close").addEventListener("click", close);
-    dialog.querySelector(".sp-overlay").addEventListener("click", (e) => {
-      if (e.target === dialog.querySelector(".sp-overlay")) close();
+    dialog.querySelector(".station-picker-close").addEventListener("click", close);
+    dialog.querySelector(".station-picker-overlay").addEventListener("click", (event) => {
+      if (event.target === dialog.querySelector(".station-picker-overlay")) close();
     });
 
-    const list = dialog.querySelector(".sp-list");
+    const list = dialog.querySelector(".station-picker-list");
 
     const renderList = (stations) => {
       const filtered = stations.filter(
-        (s) => !added.has("media-source://radio_browser/" + s.stationuuid)
+        (station) =>
+          !added.has("media-source://radio_browser/" + station.stationuuid)
       );
       if (filtered.length === 0) {
-        list.innerHTML = '<div class="sp-status">Keine Sender gefunden</div>';
+        list.innerHTML = '<div class="station-picker-status">Keine Sender gefunden</div>';
         return;
       }
       list.innerHTML = filtered
         .map(
-          (s) => `
-        <div class="sp-item" data-name="${this._esc(s.name)}" data-url="media-source://radio_browser/${s.stationuuid}">
-          <ha-icon icon="mdi:radio"></ha-icon>
-          <div class="sp-item-info">
-            <div class="sp-item-name">${this._esc(s.name)}</div>
-            ${s.country ? `<div class="sp-item-sub">${this._esc(s.country)}</div>` : ""}
+          (station) => `
+        <div class="station-picker-item" data-name="${this._escapeHtml(station.name)}" data-url="media-source://radio_browser/${station.stationuuid}">
+          <ha-icon icon="mdi:radio"/>
+          <div class="station-picker-item-info">
+            <div class="station-picker-item-name">${this._escapeHtml(station.name)}</div>
+            ${station.country ? `<div class="station-picker-item-sub">${this._escapeHtml(station.country)}</div>` : ""}
           </div>
         </div>`
         )
         .join("");
-      list.querySelectorAll(".sp-item").forEach((item) => {
+      list.querySelectorAll(".station-picker-item").forEach((item) => {
         item.addEventListener("click", () => {
           this._config.stations.push({
             name: item.dataset.name,
@@ -1151,26 +1790,26 @@ class RadioCardEditor extends HTMLElement {
 
     const fetchStations = async (query = "") => {
       list.innerHTML =
-        '<div class="sp-status"><div class="sp-spinner"></div></div>';
+        '<div class="station-picker-status"><div class="station-picker-spinner"></div></div>';
       try {
         const url = query
           ? `https://de1.api.radio-browser.info/json/stations/search?name=${encodeURIComponent(query)}&limit=100&order=votes&reverse=true&hidebroken=true`
           : `https://de1.api.radio-browser.info/json/stations/topvote/100`;
-        const resp = await fetch(url);
-        renderList(await resp.json());
+        const response = await fetch(url);
+        renderList(await response.json());
       } catch {
         list.innerHTML =
-          '<div class="sp-status">Fehler beim Laden der Sender</div>';
+          '<div class="station-picker-status">Fehler beim Laden der Sender</div>';
       }
     };
 
     fetchStations();
 
     let debounceTimer;
-    dialog.querySelector(".sp-search").addEventListener("input", (e) => {
+    dialog.querySelector(".station-picker-search").addEventListener("input", (event) => {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(
-        () => fetchStations(e.target.value.trim()),
+        () => fetchStations(event.target.value.trim()),
         300
       );
     });
@@ -1179,69 +1818,73 @@ class RadioCardEditor extends HTMLElement {
   _bindLabelEvents() {
     this.shadowRoot
       .getElementById("station-label")
-      .addEventListener("change", (e) => {
-        this._config.stationLabel = e.target.value;
+      .addEventListener("change", (event) => {
+        this._config.stationLabel = event.target.value;
         this._fire();
       });
     this.shadowRoot
       .getElementById("player-label")
-      .addEventListener("change", (e) => {
-        this._config.playerLabel = e.target.value;
+      .addEventListener("change", (event) => {
+        this._config.playerLabel = event.target.value;
         this._fire();
       });
     this.shadowRoot
       .getElementById("max-volume")
-      .addEventListener("change", (e) => {
-        const val = Math.min(
+      .addEventListener("change", (event) => {
+        const value = Math.min(
           100,
-          Math.max(1, parseInt(e.target.value) || MAX_VOLUME)
+          Math.max(1, parseInt(event.target.value) || MAX_VOLUME)
         );
-        e.target.value = val;
-        this._config.maxVolume = val;
+        event.target.value = value;
+        this._config.maxVolume = value;
         this._fire();
       });
     this.shadowRoot
       .getElementById("reset-volume")
-      .addEventListener("change", (e) => {
-        const val = Math.min(
+      .addEventListener("change", (event) => {
+        const value = Math.min(
           100,
-          Math.max(0, parseInt(e.target.value) || RESET_VOLUME)
+          Math.max(0, parseInt(event.target.value) || RESET_VOLUME)
         );
-        e.target.value = val;
-        this._config.resetVolume = val;
+        event.target.value = value;
+        this._config.resetVolume = value;
         this._fire();
       });
   }
 
   _bindFieldEvents() {
-    const on = (sel, evt, fn) =>
+    const addEventListeners = (selector, eventName, handler) =>
       this.shadowRoot
-        .querySelectorAll(sel)
-        .forEach((el) => el.addEventListener(evt, fn));
-    on(".st-name", "change", (e) => {
-      this._config.stations[+e.target.dataset.index].name = e.target.value;
+        .querySelectorAll(selector)
+        .forEach((element) => element.addEventListener(eventName, handler));
+    addEventListeners(".st-name", "change", (event) => {
+      this._config.stations[+event.target.dataset.index].name =
+        event.target.value;
       this._fire();
     });
-    on(".st-url", "change", (e) => {
-      this._config.stations[+e.target.dataset.index].url = e.target.value;
+    addEventListeners(".st-url", "change", (event) => {
+      this._config.stations[+event.target.dataset.index].url =
+        event.target.value;
       this._fire();
     });
-    on(".pl-entity", "change", (e) => {
-      this._config.players[+e.target.dataset.index].entity = e.target.value;
+    addEventListeners(".pl-entity", "change", (event) => {
+      this._config.players[+event.target.dataset.index].entity =
+        event.target.value;
       this._fire();
     });
-    on(".pl-name", "change", (e) => {
-      this._config.players[+e.target.dataset.index].name = e.target.value;
+    addEventListeners(".pl-name", "change", (event) => {
+      this._config.players[+event.target.dataset.index].name =
+        event.target.value;
       this._fire();
     });
-    on(".del-btn", "click", (e) => {
-      const btn = e.currentTarget;
-      this._config[btn.dataset.section].splice(+btn.dataset.index, 1);
+    addEventListeners(".config-delete-button", "click", (event) => {
+      const button = event.currentTarget;
+      this._config[button.dataset.section].splice(+button.dataset.index, 1);
       this._render();
       this._fire();
     });
-    on(".sort-btn", "click", (e) => {
-      const section = e.currentTarget.dataset.section;
+    addEventListeners(".config-sort-button", "click", (event) => {
+      const section = event.currentTarget.dataset.section;
       this._config[section].sort((a, b) => a.name.localeCompare(b.name));
       this._render();
       this._fire();
@@ -1249,43 +1892,43 @@ class RadioCardEditor extends HTMLElement {
   }
 
   _bindDragEvents() {
-    const on = (sel, evt, fn) =>
+    const addEventListeners = (selector, eventName, handler) =>
       this.shadowRoot
-        .querySelectorAll(sel)
-        .forEach((el) => el.addEventListener(evt, fn));
+        .querySelectorAll(selector)
+        .forEach((element) => element.addEventListener(eventName, handler));
     let dragSrc = null;
-    on(".item[draggable]", "dragstart", (e) => {
-      if (e.target.tagName === "INPUT") {
-        e.preventDefault();
+    addEventListeners(".item[draggable]", "dragstart", (event) => {
+      if (event.target.tagName === "INPUT") {
+        event.preventDefault();
         return;
       }
-      dragSrc = e.currentTarget;
-      e.dataTransfer.effectAllowed = "move";
+      dragSrc = event.currentTarget;
+      event.dataTransfer.effectAllowed = "move";
       setTimeout(
         () => dragSrc && dragSrc.style.setProperty("opacity", "0.4"),
         0
       );
     });
-    on(".item[draggable]", "dragend", (e) => {
-      e.currentTarget.style.removeProperty("opacity");
+    addEventListeners(".item[draggable]", "dragend", (event) => {
+      event.currentTarget.style.removeProperty("opacity");
       this.shadowRoot
         .querySelectorAll(".item.drag-over")
-        .forEach((el) => el.classList.remove("drag-over"));
+        .forEach((element) => element.classList.remove("drag-over"));
       dragSrc = null;
     });
-    on(".item[draggable]", "dragover", (e) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
+    addEventListeners(".item[draggable]", "dragover", (event) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
     });
-    on(".item[draggable]", "dragenter", (e) => {
-      e.currentTarget.classList.add("drag-over");
+    addEventListeners(".item[draggable]", "dragenter", (event) => {
+      event.currentTarget.classList.add("drag-over");
     });
-    on(".item[draggable]", "dragleave", (e) => {
-      e.currentTarget.classList.remove("drag-over");
+    addEventListeners(".item[draggable]", "dragleave", (event) => {
+      event.currentTarget.classList.remove("drag-over");
     });
-    on(".item[draggable]", "drop", (e) => {
-      e.preventDefault();
-      const dst = e.currentTarget;
+    addEventListeners(".item[draggable]", "drop", (event) => {
+      event.preventDefault();
+      const dst = event.currentTarget;
       if (!dragSrc || dragSrc === dst) return;
       if (dragSrc.dataset.dragSection !== dst.dataset.dragSection) return;
       const [moved] = this._config[dragSrc.dataset.dragSection].splice(
