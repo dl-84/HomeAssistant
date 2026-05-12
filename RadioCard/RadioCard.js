@@ -1,8 +1,9 @@
+// Version: 1.0
+
 const MAX_VOLUME = 25;
 const RESET_VOLUME = 10; // percent
 const UNJOIN_DELAY_MS = 800;
 const VOL_START_THRESHOLD = 10; // percent
-
 
 // ── RadioCard ──────────────────────────────────────────────────────────────
 
